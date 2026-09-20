@@ -408,7 +408,7 @@
     });
 
     var caja = document.getElementById("respuesta");
-    caja.innerHTML = '<span class="pensando"><i></i><i></i><i></i> Consultando el cálculo</span>';
+    caja.innerHTML = '<p class="pensando">Consultando el cálculo</p>';
 
     setTimeout(function () {
       var p = lista[i];

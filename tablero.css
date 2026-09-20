@@ -243,29 +243,10 @@ html { background: var(--panel); }
 .cita em { font-style: normal; color: var(--tinta-3); font-size: 11px; }
 
 .pensando {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  display: block;
+  margin: 0;
   font-size: 13px;
   color: var(--tinta-3);
-}
-.pensando i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--tinta-3);
-  animation: latido 1s ease-in-out infinite;
-}
-.pensando i:nth-child(2) { animation-delay: .14s; }
-.pensando i:nth-child(3) { animation-delay: .28s; }
-
-@keyframes latido {
-  0%, 60%, 100% { opacity: .25; transform: translateY(0); }
-  30% { opacity: 1; transform: translateY(-3px); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pensando i { animation: none; opacity: .6; }
 }
 
 /* ---------- pie ---------- */
