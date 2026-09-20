@@ -94,7 +94,7 @@
   <section class="panel panel-ancho" aria-labelledby="t-curva">
     <div class="panel-cabeza">
       <h2 id="t-curva" class="panel-titulo">Cuánta cuadrilla hace falta</h2>
-      <p class="panel-nota">Riesgo de la red cubierto según cuántas jornadas de ocho horas se asignen por semana, recorriendo por criticidad y comparado contra la lista por calle. Las dos curvas usan el mismo tiempo de traslado entre paradas, nueve minutos, así que comparan criterio de orden y no calidad de ruteo.</p>
+      <p class="panel-nota">Riesgo de la red cubierto según cuántas jornadas de ocho horas se asignen por semana, recorriendo por criticidad y comparado contra la lista por calle. Las dos curvas salen del mismo motor que arma la hoja de ruta del día, con una cuadrilla por jornada asignada, y las dos pagan el viaje real entre tramo y tramo sobre la red completa.</p>
     </div>
 
     <div class="control-jornadas">
@@ -127,6 +127,7 @@
 </footer>
 
 <script src="datos/malla-datos.js"></script>
+<script src="motor.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

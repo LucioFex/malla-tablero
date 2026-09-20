@@ -20,8 +20,9 @@
 
   var estado = { ciudad: "bahia_blanca", periodo: 0, pregunta: null, jornadas: 10 };
 
-  var JORNADA = 480;      // minutos de una jornada de ocho horas
-  var VIAJE_MEDIO = 9;    // minutos de traslado entre dos tramos consecutivos
+  var MOTOR = window.MALLA_MOTOR;
+  var TOPE = 40;          // jornadas que abarca el eje de la curva
+  var planes = {};        // el plan de cada ciudad, calculado una sola vez
 
   function num(n) { return Math.round(n).toLocaleString("es-AR"); }
 
@@ -324,47 +325,38 @@
      mismo calculo que el visor muestra tramo por tramo, y es de donde sale el numero con el
      que se escribe un objetivo medible en lugar de un adjetivo. */
 
-  function costoInspeccion(t) { return 11 + t.largo / 100 * 1.6 + VIAJE_MEDIO; }
+  /* La curva no se estima aparte: se le pide al mismo motor que arma la hoja de ruta
+     del dia, con una cuadrilla por jornada asignada. Como cada jornada solo agrega
+     tramos y no cambia lo que hicieron las anteriores, una sola corrida da la curva
+     entera, y el punto de dos jornadas es exactamente la recorrida que dibuja la hoja
+     de ruta con dos cuadrillas. */
 
-  function acumular(lista, riesgoTotal, tope) {
-    var puntos = [{ j: 0, pct: 0 }];
-    var min = 0, crit = 0;
-
-    for (var i = 0; i < lista.length; i++) {
-      min += costoInspeccion(lista[i]);
-      crit += lista[i].crit;
-      var j = min / JORNADA;
-      if (j > tope) break;
-      if (i % 4 === 0 || i === lista.length - 1) {
-        puntos.push({ j: j, pct: crit / riesgoTotal * 100 });
-      }
+  function plan() {
+    if (!planes[estado.ciudad]) {
+      planes[estado.ciudad] = MOTOR.planificar(D.ciudades[estado.ciudad], TOPE, 8);
     }
-    return puntos;
+    return planes[estado.ciudad];
   }
 
-  function enJornadas(puntos, j) {
-    var ultimo = puntos[0];
-    for (var i = 0; i < puntos.length; i++) {
-      if (puntos[i].j > j) break;
-      ultimo = puntos[i];
+  function puntos(acumulado, riesgoTotal) {
+    var serie = [{ j: 0, pct: 0 }];
+    for (var i = 0; i < acumulado.length; i++) {
+      serie.push({ j: i + 1, pct: acumulado[i] / riesgoTotal * 100 });
     }
-    return ultimo.pct;
+    return serie;
+  }
+
+  function enJornadas(serie, j) {
+    return serie[Math.min(j, serie.length - 1)].pct;
   }
 
   function curva() {
     var c = D.ciudades[estado.ciudad];
-    var TOPE = 40;
+    var p = plan();
+    var riesgoTotal = p.riesgoTotal;
 
-    var riesgoTotal = 0;
-    c.tramos.forEach(function (t) { riesgoTotal += t.crit; });
-
-    var porCriticidad = c.tramos.slice();
-    var porCalle = c.tramos.slice().sort(function (a, b) {
-      return a.nombre.localeCompare(b.nombre, "es");
-    });
-
-    var malla = acumular(porCriticidad, riesgoTotal, TOPE);
-    var actual = acumular(porCalle, riesgoTotal, TOPE);
+    var malla = puntos(p.malla.acumulado, riesgoTotal);
+    var actual = puntos(p.actual.acumulado, riesgoTotal);
 
     var cont = document.getElementById("curva");
     cont.innerHTML = "";
@@ -435,7 +427,9 @@
       "criticidad cubre el <b>" + pm.toFixed(0) + " %</b> del riesgo de la red de " + c.nombre +
       ", contra el <b>" + pa.toFixed(1).replace(".", ",") + " %</b> que cubre la lista por calle con el " +
       "mismo esfuerzo. Son <b>" + veces.toFixed(1).replace(".", ",") +
-      " veces</b> más riesgo cubierto sin agregar una sola hora de cuadrilla.";
+      " veces</b> más riesgo cubierto sin agregar una sola hora de cuadrilla. La ventaja " +
+      "es mayor cuanto más escaso es el recurso, que es la situación real: con la red " +
+      "entera recorrida los dos criterios llegan al mismo lugar.";
   }
 
   /* ---------- consulta anclada ---------- */
