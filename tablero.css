@@ -275,3 +275,29 @@ html { background: var(--panel); }
   .indicador + .indicador { border-top: 1px solid var(--linea); padding-top: 16px; }
   .pie { padding: 4px 16px 24px; }
 }
+
+/* ---------- curva de cobertura ---------- */
+/* Responde cuanta cuadrilla hace falta para cubrir cuanto riesgo. Es el numero con el que
+   se escribe un objetivo medible, que es lo que la catedra exige en lugar de un adjetivo. */
+
+.curva-linea { fill: none; stroke: var(--bordo); stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.curva-area { fill: var(--bordo); opacity: .07; }
+.curva-actual { fill: none; stroke: #3d5a5f; stroke-width: 1.8; stroke-dasharray: 5 4; stroke-linecap: round; }
+.curva-guia { stroke: var(--tinta-3); stroke-width: 1; stroke-dasharray: 3 3; }
+
+.control-jornadas {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.control-jornadas .etiqueta-control {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--tinta-3);
+  white-space: nowrap;
+}
+.control-jornadas input[type="range"] { flex: 1; max-width: 340px; }
+.control-jornadas .rango-valor { font-size: 15px; font-weight: 600; white-space: nowrap; }

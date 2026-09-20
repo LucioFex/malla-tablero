@@ -18,7 +18,10 @@
   var MESES_LARGOS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
                       "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
-  var estado = { ciudad: "bahia_blanca", periodo: 0, pregunta: null };
+  var estado = { ciudad: "bahia_blanca", periodo: 0, pregunta: null, jornadas: 10 };
+
+  var JORNADA = 480;      // minutos de una jornada de ocho horas
+  var VIAJE_MEDIO = 9;    // minutos de traslado entre dos tramos consecutivos
 
   function num(n) { return Math.round(n).toLocaleString("es-AR"); }
 
@@ -316,6 +319,125 @@
     document.querySelector("#ranking tbody").innerHTML = filas;
   }
 
+  /* ---------- curva de cobertura ---------- */
+  /* Cuanta cuadrilla hace falta para cubrir cuanto riesgo. Es la lectura de gestion del
+     mismo calculo que el visor muestra tramo por tramo, y es de donde sale el numero con el
+     que se escribe un objetivo medible en lugar de un adjetivo. */
+
+  function costoInspeccion(t) { return 11 + t.largo / 100 * 1.6 + VIAJE_MEDIO; }
+
+  function acumular(lista, riesgoTotal, tope) {
+    var puntos = [{ j: 0, pct: 0 }];
+    var min = 0, crit = 0;
+
+    for (var i = 0; i < lista.length; i++) {
+      min += costoInspeccion(lista[i]);
+      crit += lista[i].crit;
+      var j = min / JORNADA;
+      if (j > tope) break;
+      if (i % 4 === 0 || i === lista.length - 1) {
+        puntos.push({ j: j, pct: crit / riesgoTotal * 100 });
+      }
+    }
+    return puntos;
+  }
+
+  function enJornadas(puntos, j) {
+    var ultimo = puntos[0];
+    for (var i = 0; i < puntos.length; i++) {
+      if (puntos[i].j > j) break;
+      ultimo = puntos[i];
+    }
+    return ultimo.pct;
+  }
+
+  function curva() {
+    var c = D.ciudades[estado.ciudad];
+    var TOPE = 40;
+
+    var riesgoTotal = 0;
+    c.tramos.forEach(function (t) { riesgoTotal += t.crit; });
+
+    var porCriticidad = c.tramos.slice();
+    var porCalle = c.tramos.slice().sort(function (a, b) {
+      return a.nombre.localeCompare(b.nombre, "es");
+    });
+
+    var malla = acumular(porCriticidad, riesgoTotal, TOPE);
+    var actual = acumular(porCalle, riesgoTotal, TOPE);
+
+    var cont = document.getElementById("curva");
+    cont.innerHTML = "";
+
+    var W = 1000, H = 250, ml = 52, mr = 16, mt = 16, mb = 34;
+    var ax = W - ml - mr, ay = H - mt - mb;
+
+    function px(j) { return ml + j / TOPE * ax; }
+    function py(p) { return mt + ay - p / 100 * ay; }
+
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
+      "aria-label": "Riesgo cubierto segun jornadas de cuadrilla asignadas por semana" });
+
+    for (var v = 0; v <= 100; v += 25) {
+      svg.appendChild(el("line", { class: "grilla", x1: ml, x2: W - mr, y1: py(v), y2: py(v) }));
+      svg.appendChild(texto("text", { class: "eje-texto", x: ml - 10, y: py(v) + 3.5, "text-anchor": "end" },
+        v + " %"));
+    }
+
+    for (var j = 0; j <= TOPE; j += 10) {
+      svg.appendChild(el("line", { class: "eje-linea", x1: px(j), x2: px(j), y1: mt + ay, y2: mt + ay + 5 }));
+      svg.appendChild(texto("text", { class: "eje-texto", x: px(j), y: H - 14, "text-anchor": "middle" },
+        j === 0 ? "0" : j + " jornadas"));
+    }
+
+    svg.appendChild(el("line", { class: "eje-linea", x1: ml, x2: W - mr, y1: mt + ay, y2: mt + ay }));
+
+    function trazo(puntos) {
+      var d = "";
+      puntos.forEach(function (p, i) {
+        d += (i ? "L" : "M") + px(p.j).toFixed(1) + " " + py(p.pct).toFixed(1) + " ";
+      });
+      return d;
+    }
+
+    var dMalla = trazo(malla);
+    svg.appendChild(el("path", { class: "curva-area",
+      d: dMalla + "L" + px(malla[malla.length - 1].j).toFixed(1) + " " + py(0) + " L" + px(0) + " " + py(0) + " Z" }));
+    svg.appendChild(el("path", { class: "curva-actual", d: trazo(actual) }));
+    svg.appendChild(el("path", { class: "curva-linea", d: dMalla }));
+
+    // el punto elegido, sobre las dos curvas
+    var jn = estado.jornadas;
+    var pm = enJornadas(malla, jn);
+    var pa = enJornadas(actual, jn);
+
+    svg.appendChild(el("line", { class: "curva-guia", x1: px(jn), x2: px(jn), y1: mt, y2: mt + ay }));
+    svg.appendChild(el("circle", { class: "marca-punto", cx: px(jn), cy: py(pm), r: 4.5 }));
+    svg.appendChild(el("circle", { cx: px(jn), cy: py(pa), r: 4, fill: FRIO, stroke: "#fbfaf8", "stroke-width": 2 }));
+
+    var ancla = jn > TOPE * .8 ? "end" : "start";
+    var dx = jn > TOPE * .8 ? -10 : 10;
+    svg.appendChild(texto("text", { class: "marca-rotulo", x: px(jn) + dx, y: py(pm) - 15, "text-anchor": ancla },
+      pm.toFixed(0) + " % con Malla"));
+    svg.appendChild(texto("text", { class: "marca-rotulo-suave", x: px(jn) + dx, y: py(pa) + 17, "text-anchor": ancla },
+      pa.toFixed(1).replace(".", ",") + " % por calle"));
+
+    cont.appendChild(svg);
+
+    var veces = pa > 0 ? pm / pa : 0;
+
+    document.getElementById("curva-lectura").innerHTML =
+      '<span class="referencia" style="margin-bottom:10px">' +
+        '<span><i style="background:' + BORDO + '"></i>recorrida por criticidad</span>' +
+        '<span><i style="background:' + FRIO + '"></i>lista por calle, el criterio de hoy</span>' +
+      "</span><br>" +
+      "Con <b>" + jn + (jn === 1 ? " jornada" : " jornadas") + " de ocho horas por semana</b> la recorrida por " +
+      "criticidad cubre el <b>" + pm.toFixed(0) + " %</b> del riesgo de la red de " + c.nombre +
+      ", contra el <b>" + pa.toFixed(1).replace(".", ",") + " %</b> que cubre la lista por calle con el " +
+      "mismo esfuerzo. Son <b>" + veces.toFixed(1).replace(".", ",") +
+      " veces</b> más riesgo cubierto sin agregar una sola hora de cuadrilla.";
+  }
+
   /* ---------- consulta anclada ---------- */
 
   function preguntas() {
@@ -426,6 +548,7 @@
     indicadores();
     serie();
     estacionalidad();
+    curva();
     ranking();
     consulta();
   }
@@ -443,6 +566,13 @@
 
     var per = document.getElementById("periodo");
     per.addEventListener("change", function () { estado.periodo = +per.value; serie(); });
+
+    var jor = document.getElementById("jornadas");
+    jor.addEventListener("input", function () {
+      estado.jornadas = +jor.value;
+      document.getElementById("jornadas-valor").textContent = estado.jornadas;
+      curva();
+    });
 
     document.getElementById("btn-procedencia").addEventListener("click", function () {
       document.querySelector(".pie").scrollIntoView({ behavior: "smooth", block: "end" });

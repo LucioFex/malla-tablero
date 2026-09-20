@@ -91,6 +91,22 @@
     </div>
   </section>
 
+  <section class="panel panel-ancho" aria-labelledby="t-curva">
+    <div class="panel-cabeza">
+      <h2 id="t-curva" class="panel-titulo">Cuánta cuadrilla hace falta</h2>
+      <p class="panel-nota">Riesgo de la red cubierto según cuántas jornadas de ocho horas se asignen por semana, recorriendo por criticidad y comparado contra la lista por calle. Las dos curvas usan el mismo tiempo de traslado entre paradas, nueve minutos, así que comparan criterio de orden y no calidad de ruteo.</p>
+    </div>
+
+    <div class="control-jornadas">
+      <span class="etiqueta-control">Jornadas por semana</span>
+      <input type="range" id="jornadas" min="1" max="40" step="1" value="10" aria-label="Jornadas de cuadrilla por semana">
+      <span class="rango-valor"><span id="jornadas-valor">10</span></span>
+    </div>
+
+    <div id="curva" class="grafico"></div>
+    <p class="panel-lectura" id="curva-lectura"></p>
+  </section>
+
   <section class="panel panel-ancho panel-consulta" aria-labelledby="t-consulta">
     <div class="panel-cabeza">
       <h2 id="t-consulta" class="panel-titulo">Consulta</h2>
