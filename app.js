@@ -214,15 +214,22 @@
     var primero = D.reclamos_por_anio[anios[0]];
     var ultimoCompleto = D.reclamos_por_anio[anios[anios.length - 2]];
     var caida = Math.round((1 - ultimoCompleto / primero) * 100);
+    var tendencia = Math.abs(caida) < 5
+      ? "El volumen anual se mantiene estable entre " + anios[0] + " y " + anios[anios.length - 2]
+      : "El volumen anual baja " + caida + " % entre " + anios[0] + " y " + anios[anios.length - 2];
+
+    /* el pico sale de la serie y no de un numero escrito a mano, para que no se
+       desincronice cuando se regeneran los datos */
+    var pico = D.reclamos_serie[0];
+    D.reclamos_serie.forEach(function (m) { if (m.cantidad > pico.cantidad) pico = m; });
 
     document.getElementById("serie-pie").innerHTML =
       "Son <b>" + num(D.reclamos_total_grupo_ii) + " reclamos</b> de inconvenientes en el suministro entre " +
       anios[0] + " y " + anios[anios.length - 1] + ", con " + anios[anios.length - 1] +
-      " todavía incompleto. El volumen anual baja " + caida + " % entre " + anios[0] + " y " +
-      anios[anios.length - 2] + ", pero el patrón dentro del año se repite, y ese patrón es el que " +
-      "alimenta la probabilidad de falla de cada tramo." +
-      '<br><span style="color:var(--tinta-3)">El pico de julio de 2025, con ' +
-      num(8181) + " reclamos contra un promedio mensual de " +
+      " todavía incompleto. " + tendencia + ", y el patrón dentro del año se repite. " +
+      "Ese patrón es el que alimenta la probabilidad de falla de cada tramo." +
+      '<br><span style="color:var(--tinta-3)">El pico de ' + MESES_LARGOS[pico.mes - 1] +
+      " de " + pico.anio + ", con " + num(pico.cantidad) + " reclamos contra un promedio mensual de " +
       num(D.reclamos_total_grupo_ii / D.reclamos_serie.length) +
       ", es un valor atípico de la fuente. Antes de entrar al modelo hay que verificarlo " +
       "contra el crudo de ENARGAS o recortarlo.</span>";
