@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Malla Tablero, gestión de la inspección</title>
+<meta name="description" content="Variante C de Malla: cobertura de inspección, la serie real de reclamos de ENARGAS y una consulta en lenguaje natural anclada al cálculo determinístico.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%237b1e2b'/%3E%3Cg fill='%23fbfaf8'%3E%3Crect x='7' y='16' width='4' height='10' rx='1'/%3E%3Crect x='14' y='10' width='4' height='16' rx='1'/%3E%3Crect x='21' y='6' width='4' height='20' rx='1'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilo.css">
+<link rel="stylesheet" href="tablero.css">
+</head>
+<body class="cuerpo-tablero">
+
+<header class="barra">
+  <div class="marca">
+    <b>Malla</b>
+    <span>Gestión de la inspección</span>
+  </div>
+
+  <div class="barra-sep"></div>
+
+  <label class="campo">
+    Ciudad
+    <select id="ciudad" aria-label="Ciudad"></select>
+  </label>
+
+  <label class="campo">
+    Período
+    <select id="periodo" aria-label="Período">
+      <option value="12">Últimos 12 meses</option>
+      <option value="24">Últimos 24 meses</option>
+      <option value="0" selected>Serie completa</option>
+    </select>
+  </label>
+
+  <div class="barra-fin">
+    <button class="boton" id="btn-procedencia" type="button">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="8" cy="8" r="6.25"/><path d="M8 7.2v4"/><path d="M8 4.9h.01"/>
+      </svg>
+      Procedencia del dato
+    </button>
+  </div>
+</header>
+
+<main class="tablero">
+
+  <section class="panel panel-ancho" aria-labelledby="t-estado">
+    <h2 id="t-estado" class="panel-titulo">Estado de la red</h2>
+    <div class="indicadores" id="indicadores"></div>
+  </section>
+
+  <section class="panel panel-ancho" aria-labelledby="t-serie">
+    <div class="panel-cabeza">
+      <h2 id="t-serie" class="panel-titulo">Reclamos por inconvenientes en el suministro</h2>
+      <p class="panel-nota">Camuzzi Gas Pampeana, Buenos Aires, La Pampa y Río Negro. Fuente ENARGAS, dato real.</p>
+    </div>
+    <div id="serie" class="grafico"></div>
+    <div id="serie-pie" class="grafico-pie"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="t-estacion">
+    <div class="panel-cabeza">
+      <h2 id="t-estacion" class="panel-titulo">Estacionalidad</h2>
+      <p class="panel-nota">Índice mensual sobre la serie completa. Dato real.</p>
+    </div>
+    <div id="estacionalidad" class="grafico"></div>
+    <p class="panel-lectura" id="estacion-lectura"></p>
+  </section>
+
+  <section class="panel" aria-labelledby="t-ranking">
+    <div class="panel-cabeza">
+      <h2 id="t-ranking" class="panel-titulo">Tramos que encabezan la cola</h2>
+      <p class="panel-nota">Ordenados por criticidad, con los días que llevan sin inspección.</p>
+    </div>
+    <div class="tabla-marco">
+      <table class="tabla" id="ranking">
+        <thead>
+          <tr>
+            <th scope="col">Tramo</th>
+            <th scope="col" class="n">Criticidad</th>
+            <th scope="col" class="n">Hogares</th>
+            <th scope="col" class="n">Sin inspección</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel panel-ancho panel-consulta" aria-labelledby="t-consulta">
+    <div class="panel-cabeza">
+      <h2 id="t-consulta" class="panel-titulo">Consulta</h2>
+      <p class="panel-nota">Responde citando los números que el cálculo determinístico ya produjo. No estima ni opina.</p>
+    </div>
+
+    <div class="sugerencias" id="sugerencias"></div>
+
+    <div class="respuesta" id="respuesta">
+      <p class="respuesta-vacia">Elegí una pregunta para ver cómo se responde con trazabilidad al dato.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pie">
+  <p><b>Maqueta con datos mixtos.</b> Las calles y los receptores sensibles son reales, de OpenStreetMap, ODbL. La serie de reclamos es real, de ENARGAS, CC BY 4.0. Los hogares aguas abajo y los atributos del caño son de muestra, porque la traza fina de la red no es dato público.</p>
+</footer>
+
+<script src="datos/malla-datos.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
