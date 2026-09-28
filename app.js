@@ -444,9 +444,53 @@
       "entera recorrida los dos criterios llegan al mismo lugar.";
   }
 
-  /* ---------- consulta anclada ---------- */
+  /* ---------- consulta anclada ----------
 
-  function preguntas() {
+     Cada consulta permitida devuelve su respuesta armada y sus citas. La voz le pasa al
+     modelo esa misma respuesta como datos, y solo acepta la redaccion si no agrega ningun
+     numero. Sin modelo, o si la redaccion no pasa, se muestra la armada. */
+
+  var ETIQUETAS = [
+    ["corte", "qué queda sin gas, cuántos hogares o receptores se afectan si se corta un tramo"],
+    ["encabeza", "por qué un tramo encabeza la cola o es el más crítico"],
+    ["cobertura", "cuánto riesgo cubren tantas jornadas u horas de cuadrilla"],
+    ["concentracion", "cuánto riesgo concentran los tramos críticos"],
+    ["adelantar", "cuándo conviene adelantar la inspección"],
+    ["limites", "qué no puede responder el sistema, o cualquier otra pregunta"]
+  ];
+
+  function coma(x, d) { return x.toFixed(d).replace(".", ","); }
+
+  function peorCorte(c) {
+    return c.tramos.reduce(function (a, t) { return t.hogares > a.hogares ? t : a; });
+  }
+
+  /* El tramo por su identificador o por el nombre de la calle. Con varios tramos en la
+     misma calle se toma el que deja mas hogares sin gas. Si no nombra ninguno, el peor. */
+  function buscarTramo(pregunta, c) {
+    var id = /\bT\d{5}\b/i.exec(pregunta);
+    if (id) {
+      var t = c.tramos.filter(function (x) { return x.id === id[0].toUpperCase(); })[0];
+      if (t) return t;
+    }
+    var p = pregunta.toLowerCase(), mejor = null, largo = 0;
+    c.tramos.forEach(function (x) {
+      var n = x.nombre.toLowerCase();
+      if (n.length > 3 && p.indexOf(n) !== -1 &&
+          (n.length > largo || (n.length === largo && x.hogares > mejor.hogares))) {
+        mejor = x; largo = n.length;
+      }
+    });
+    return mejor || peorCorte(c);
+  }
+
+  function buscarJornadas(pregunta) {
+    var m = /(\d+)\s*(jornada|cuadrilla|d[ií]a)/i.exec(pregunta);
+    var j = m ? parseInt(m[1], 10) : estado.jornadas;
+    return Math.max(1, Math.min(TOPE, j));
+  }
+
+  function consultas(param) {
     var c = D.ciudades[estado.ciudad];
     var criticos = c.tramos.filter(function (t) { return t.score >= 95; });
     var primero = c.tramos[0];
@@ -461,28 +505,61 @@
     var pico = 1;
     for (var k = 1; k <= 12; k++) if (D.estacionalidad[k] > D.estacionalidad[pico]) pico = k;
 
-    return [
-      {
+    var peor = peorCorte(c);
+    var corte = param.tramo || peor;
+    var rec = corte.receptores;
+    var jn = param.jornadas || estado.jornadas;
+    var p = plan();
+    var pm = enJornadas(puntos(p.malla.acumulado, p.riesgoTotal), jn);
+    var pa = enJornadas(puntos(p.actual.acumulado, p.riesgoTotal), jn);
+
+    return {
+      corte: {
+        titulo: "¿Qué queda sin gas si se corta " + corte.nombre + "?",
+        texto: "Si se corta el tramo <b>" + corte.id + "</b> de " + corte.nombre + " quedan sin gas <b>" +
+          num(corte.hogares) + " hogares</b> aguas abajo" +
+          (rec.length
+            ? ", y dependen de él <b>" + num(rec.length) + (rec.length === 1 ? " receptor sensible" : " receptores sensibles") +
+              "</b>, entre ellos " + rec.slice(0, 3).map(function (r) { return r.nombre; }).join(", ") + "."
+            : ". No depende de él ningún receptor sensible.") +
+          (corte === peor ? " Es el corte más grave de " + c.nombre + "." : ""),
+        citas: [
+          ["Hogares", "calculados sobre el grafo de la red modelada radial, con los hogares del Censo 2022", "cálculo"],
+          ["Entrada de gas", "el punto más cercano al gasoducto troncal de ENARGAS, que no es la entrada real", "supuesto"]
+        ]
+      },
+      encabeza: {
         titulo: "¿Por qué " + primero.nombre + " encabeza la cola?",
         texto: "El tramo <b>" + primero.id + "</b> de " + primero.nombre + " tiene una probabilidad de falla de <b>" +
-          (primero.prob * 100).toFixed(2).replace(".", ",") + " %</b> y una consecuencia de <b>" +
+          coma(primero.prob * 100, 2) + " %</b> y una consecuencia de <b>" +
           num(primero.consecuencia) + " hogares equivalentes</b>. El producto de los dos lo deja primero en la cola de " + c.nombre + ", con un índice de <b>" +
           primero.indice.toFixed(0) + " sobre 100</b>. Lleva <b>" + num(primero.dias) +
           " días</b> sin inspección.",
         citas: [
           ["Probabilidad", "base por material " + primero.material.toLowerCase() + " y " + primero.antiguedad +
             " años de antigüedad, que no son dato público, por el factor de carga " +
-            D.carga.factor.toFixed(2).replace(".", ",") + " que pronostica el modelo sobre la serie de reclamos de ENARGAS",
+            coma(D.carga.factor, 2) + " que pronostica el modelo sobre la serie de reclamos de ENARGAS",
             "muestra y modelo"],
           ["Consecuencia", num(primero.hogares) + " hogares aguas abajo por un factor de " +
-            primero.factor.toFixed(2).replace(".", ",") + " por receptores sensibles", "cálculo"],
+            coma(primero.factor, 2) + " por receptores sensibles", "cálculo"],
           ["Geometría", primero.nombre + ", " + num(primero.largo) + " metros, OpenStreetMap", "dato real"]
         ]
       },
-      {
+      cobertura: {
+        titulo: "¿Cuánto riesgo cubren " + jn + (jn === 1 ? " jornada?" : " jornadas?"),
+        texto: "Con <b>" + jn + (jn === 1 ? " jornada" : " jornadas") + "</b> de ocho horas por semana la recorrida por " +
+          "criticidad cubre el <b>" + coma(pm, 1) + " %</b> del riesgo de la red de " + c.nombre +
+          ", contra el <b>" + coma(pa, 1) + " %</b> que cubre la lista por calle con las mismas horas." +
+          (pa > 0 ? " Son <b>" + coma(pm / pa, 1) + " veces</b> más riesgo cubierto." : ""),
+        citas: [
+          ["Motor", "el mismo que arma la hoja de ruta del día, con una cuadrilla por jornada", "cálculo"],
+          ["Lista por calle", "orden alfabético recorrido de arriba hacia abajo, el criterio de hoy", "definición"]
+        ]
+      },
+      concentracion: {
         titulo: "¿Cuánto riesgo concentran los tramos críticos?",
         texto: "Los <b>" + num(criticos.length) + " tramos críticos</b> son el " +
-          (criticos.length / c.tramos.length * 100).toFixed(1).replace(".", ",") +
+          coma(criticos.length / c.tramos.length * 100, 1) +
           " % de la red bajo seguimiento y concentran el <b>" +
           (riesgoCritico / riesgoTotal * 100).toFixed(0) + " %</b> del riesgo total. " +
           "De esos, <b>" + num(conReceptor.length) + "</b> tienen al menos un receptor sensible aguas abajo.",
@@ -491,10 +568,10 @@
           ["Receptores", num(c.receptores.length) + " escuelas, hospitales, centros de salud y jardines etiquetados en OpenStreetMap", "dato real"]
         ]
       },
-      {
+      adelantar: {
         titulo: "¿Cuándo conviene adelantar la inspección?",
         texto: "El índice de reclamos toca su máximo en <b>" + MESES_LARGOS[pico - 1] + "</b>, con " +
-          D.estacionalidad[pico].toFixed(2).replace(".", ",") + " contra un promedio de 1,00. " +
+          coma(D.estacionalidad[pico], 2) + " contra un promedio de 1,00. " +
           "Programar los <b>" + num(vencidos.length) + " tramos críticos vencidos</b> antes de esa ventana " +
           "es lo que más corre la aguja.",
         citas: [
@@ -504,7 +581,7 @@
             " tramos críticos superan los 365 días sin inspección", "cálculo"]
         ]
       },
-      {
+      limites: {
         titulo: "¿Qué no puede responder este sistema?",
         texto: "No puede decir <b>dónde hay una fuga</b>. Malla prioriza dónde ir a buscarla. " +
           "Tampoco puede bajar los reclamos de ENARGAS por debajo de la provincia: el dato viene agregado " +
@@ -516,38 +593,153 @@
           ["Supuesto declarado", "red secundaria sobre calles con frente edificado dentro del área de cobertura", "metodología"]
         ]
       }
-    ];
+    };
   }
 
-  function consulta() {
-    var lista = preguntas();
+  var ORDEN = ["corte", "encabeza", "cobertura", "concentracion", "adelantar", "limites"];
 
-    document.getElementById("sugerencias").innerHTML = lista.map(function (p, i) {
-      return '<button class="sugerencia" type="button" data-p="' + i + '" aria-pressed="false">' +
-        p.titulo + "</button>";
+  function consulta() {
+    var lista = consultas({});
+
+    document.getElementById("sugerencias").innerHTML = ORDEN.map(function (k) {
+      return '<button class="sugerencia" type="button" data-p="' + k + '" aria-pressed="false">' +
+        lista[k].titulo + "</button>";
     }).join("");
 
     Array.prototype.forEach.call(document.querySelectorAll("[data-p]"), function (el2) {
-      el2.addEventListener("click", function () { responder(+el2.dataset.p, lista); });
+      el2.addEventListener("click", function () {
+        marcar(el2.dataset.p);
+        mostrar(lista[el2.dataset.p], null);
+      });
     });
   }
 
-  function responder(i, lista) {
+  function marcar(k) {
     Array.prototype.forEach.call(document.querySelectorAll("[data-p]"), function (el2) {
-      el2.setAttribute("aria-pressed", +el2.dataset.p === i ? "true" : "false");
+      el2.setAttribute("aria-pressed", el2.dataset.p === k ? "true" : "false");
+    });
+  }
+
+  function escapar(s) {
+    return s.replace(/[&<>"]/g, function (ch) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[ch];
+    });
+  }
+
+  function citasHtml(q) {
+    return '<div class="citas">' + q.citas.map(function (c) {
+      return '<div class="cita"><b>' + c[0] + "</b><span>" + c[1] + "</span><em>" + c[2] + "</em></div>";
+    }).join("") + "</div>";
+  }
+
+  /* texto es la redaccion validada del modelo. Si es null se muestra la armada. */
+  function mostrar(q, texto, nota) {
+    document.getElementById("respuesta").innerHTML =
+      (nota ? '<p class="voz-nota">' + escapar(nota) + "</p>" : "") +
+      '<p class="respuesta-texto">' + (texto === null ? q.texto : escapar(texto)) + "</p>" +
+      (texto === null ? "" : '<p class="voz-nota">Lo que devolvió el cálculo: ' + q.texto + "</p>") +
+      citasHtml(q);
+  }
+
+  function datosDe(q) {
+    return q.texto.replace(/<[^>]+>/g, "");
+  }
+
+  /* los numeros clave son los que la respuesta armada pone en negrita */
+  function clavesDe(q) {
+    var r = [];
+    (q.texto.match(/<b>[\s\S]*?<\/b>/g) || []).forEach(function (b) {
+      r = r.concat(VOZ.numeros(b.replace(/<[^>]+>/g, "")));
+    });
+    return r;
+  }
+
+  var VOZ = window.MallaVoz;
+
+  async function preguntar(pregunta) {
+    var c = D.ciudades[estado.ciudad];
+    var param = { tramo: buscarTramo(pregunta, c), jornadas: buscarJornadas(pregunta) };
+    var lista = consultas(param);
+    var caja = document.getElementById("respuesta");
+    marcar(null);
+
+    if (!VOZ.lista()) {
+      var k0 = VOZ.clasificarPorClaves(pregunta);
+      mostrar(lista[k0], null, "Consulta elegida por palabras clave: " + lista[k0].titulo +
+        " Respuesta armada, sin modelo de lenguaje.");
+      return;
+    }
+
+    caja.innerHTML = '<p class="pensando">El modelo elige la consulta</p>';
+    var t0 = performance.now();
+    try {
+      var porClaves = VOZ.clasificarPorClaves(pregunta);
+      var k = await VOZ.elegir(pregunta, ETIQUETAS) || porClaves;
+      // limites es la etiqueta de descarte: si las palabras clave encuentran otra, gana esa
+      if (k === "limites" && porClaves !== "limites") k = porClaves;
+      var q = lista[k];
+      if (k === "limites") {
+        // no tiene numeros que validar y el modelo la puede tergiversar, va siempre armada
+        mostrar(q, null, "Consulta: " + q.titulo + " Respuesta armada, sin redacción del modelo.");
+        if (window.console) console.log("[voz]", k, "armada");
+        return;
+      }
+      caja.innerHTML = '<p class="pensando">' + escapar(q.titulo) + " El modelo redacta con esos números</p>";
+      var hechos = datosDe(q);
+      var borrador = await VOZ.redactar(pregunta, hechos);
+      var v = VOZ.validar(borrador, VOZ.numeros(hechos).map(function (n) { return n.valor; }));
+      var f = VOZ.completo(borrador, clavesDe(q));
+      var s = coma((performance.now() - t0) / 1000, 1);
+      if (v.ok && !f.ok) {
+        mostrar(q, null, "Consulta: " + q.titulo + " La redacción del modelo dejaba afuera un número " +
+          "de la consulta, así que se muestra la respuesta armada.");
+      } else if (v.ok) {
+        mostrar(q, borrador, "Consulta: " + q.titulo + " Redactado por el modelo en este navegador y " +
+          "validado contra el cálculo, en " + s + " s.");
+      } else {
+        mostrar(q, null, "Consulta: " + q.titulo + " La redacción del modelo traía un número que el " +
+          "sistema no calculó, así que se muestra la respuesta armada.");
+      }
+      if (window.console) console.log("[voz]", k, s + " s", !v.ok ? "sobra un número" :
+        (!f.ok ? "falta un número" : "valida"), borrador);
+    } catch (e) {
+      var k1 = VOZ.clasificarPorClaves(pregunta);
+      mostrar(lista[k1], null, "El modelo falló, se muestra la respuesta armada.");
+      if (window.console) console.log("[voz] error", e);
+    }
+  }
+
+  function voz() {
+    var estadoVoz = document.getElementById("voz-estado");
+    var boton = document.getElementById("voz-activar");
+
+    document.getElementById("voz-form").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var p = document.getElementById("voz-pregunta").value.trim();
+      if (p) preguntar(p);
     });
 
-    var caja = document.getElementById("respuesta");
-    caja.innerHTML = '<p class="pensando">Consultando el cálculo</p>';
+    if (!VOZ.hayWebGPU()) {
+      boton.hidden = true;
+      estadoVoz.textContent = "Este navegador no tiene WebGPU, así que la pregunta libre se responde " +
+        "con la consulta armada que corresponda. Con Chrome o Edge actualizados se puede activar el modelo.";
+      return;
+    }
 
-    setTimeout(function () {
-      var p = lista[i];
-      caja.innerHTML =
-        '<p class="respuesta-texto">' + p.texto + "</p>" +
-        '<div class="citas">' + p.citas.map(function (c) {
-          return '<div class="cita"><b>' + c[0] + "</b><span>" + c[1] + "</span><em>" + c[2] + "</em></div>";
-        }).join("") + "</div>";
-    }, 420);
+    boton.addEventListener("click", async function () {
+      boton.disabled = true;
+      try {
+        var m = await VOZ.cargar(function (p, t) {
+          estadoVoz.textContent = "Cargando el modelo, " + Math.round(p * 100) + " %. " + t;
+        });
+        boton.hidden = true;
+        estadoVoz.textContent = "Modelo " + m + " activo en este navegador, sin servidor.";
+      } catch (e) {
+        boton.disabled = false;
+        estadoVoz.textContent = "No se pudo cargar el modelo: " + e.message +
+          ". La pregunta libre sigue respondiendo con la consulta armada.";
+      }
+    });
   }
 
   /* ---------- arranque ---------- */
@@ -587,6 +779,7 @@
     });
 
     refrescar();
+    voz();
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar);

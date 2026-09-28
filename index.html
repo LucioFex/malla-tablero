@@ -115,6 +115,17 @@
 
     <div class="sugerencias" id="sugerencias"></div>
 
+    <form class="voz-form" id="voz-form">
+      <label class="voz-rotulo" for="voz-pregunta">O preguntá con tus palabras</label>
+      <div class="voz-fila">
+        <input class="voz-entrada" id="voz-pregunta" type="text" autocomplete="off"
+               placeholder="Por ejemplo, qué queda sin gas si se corta la Avenida Alem">
+        <button class="sugerencia" type="submit">Preguntar</button>
+      </div>
+      <p class="voz-estado"><button class="sugerencia" type="button" id="voz-activar">Activar el modelo de lenguaje, alrededor de 1 GB la primera vez</button>
+        <span id="voz-estado">El modelo corre en este navegador, elige la consulta y redacta con sus números. Si trae un número que el sistema no calculó, se muestra la respuesta armada.</span></p>
+    </form>
+
     <div class="respuesta" id="respuesta">
       <p class="respuesta-vacia">Elegí una pregunta para ver cómo se responde con trazabilidad al dato.</p>
     </div>
@@ -128,6 +139,7 @@
 
 <script src="datos/malla-datos.js"></script>
 <script src="motor.js"></script>
+<script src="voz.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
