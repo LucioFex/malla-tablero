@@ -229,12 +229,15 @@
       "Son <b>" + num(D.reclamos_total_grupo_ii) + " reclamos</b> de inconvenientes en el suministro entre " +
       anios[0] + " y " + anios[anios.length - 1] + ", con " + anios[anios.length - 1] +
       " todavía incompleto. " + tendencia + ", y el patrón dentro del año se repite. " +
-      "Ese patrón es el que alimenta la probabilidad de falla de cada tramo." +
+      "Una regresión entrenada sobre esta serie hasta 2024 pronostica <b>" + num(D.carga.reclamos) +
+      " reclamos</b> para " + MESES_LARGOS[D.carga.mes - 1] + " de " + D.carga.anio + ", un factor de <b>" +
+      D.carga.factor.toFixed(2).replace(".", ",") + "</b> sobre el promedio de los últimos doce meses. " +
+      "El factor multiplica la probabilidad de todos los tramos por igual: cambia su valor, no el orden de la cola." +
       '<br><span style="color:var(--tinta-3)">El pico de ' + MESES_LARGOS[pico.mes - 1] +
       " de " + pico.anio + ", con " + num(pico.cantidad) + " reclamos contra un promedio mensual de " +
       num(D.reclamos_total_grupo_ii / D.reclamos_serie.length) +
-      ", es un valor atípico de la fuente. Antes de entrar al modelo hay que verificarlo " +
-      "contra el crudo de ENARGAS o recortarlo.</span>";
+      ", es un valor atípico de la fuente. El modelo no lo borra: como entrada lo reemplaza por la mediana " +
+      "de los doce meses anteriores, y su error se informa con él y sin él.</span>";
   }
 
   /* ---------- estacionalidad ---------- */
@@ -461,14 +464,16 @@
     return [
       {
         titulo: "¿Por qué " + primero.nombre + " encabeza la cola?",
-        texto: "El tramo <b>" + primero.id + "</b> de " + primero.nombre + " tiene una probabilidad anual de falla de <b>" +
+        texto: "El tramo <b>" + primero.id + "</b> de " + primero.nombre + " tiene una probabilidad de falla de <b>" +
           (primero.prob * 100).toFixed(2).replace(".", ",") + " %</b> y una consecuencia de <b>" +
           num(primero.consecuencia) + " hogares equivalentes</b>. El producto de los dos lo deja primero en la cola de " + c.nombre + ", con un índice de <b>" +
           primero.indice.toFixed(0) + " sobre 100</b>. Lleva <b>" + num(primero.dias) +
           " días</b> sin inspección.",
         citas: [
-          ["Probabilidad", "modelo sobre la serie de reclamos de ENARGAS, modulado por material " +
-            primero.material.toLowerCase() + " y " + primero.antiguedad + " años de antigüedad", "cálculo"],
+          ["Probabilidad", "base por material " + primero.material.toLowerCase() + " y " + primero.antiguedad +
+            " años de antigüedad, que no son dato público, por el factor de carga " +
+            D.carga.factor.toFixed(2).replace(".", ",") + " que pronostica el modelo sobre la serie de reclamos de ENARGAS",
+            "muestra y modelo"],
           ["Consecuencia", num(primero.hogares) + " hogares aguas abajo por un factor de " +
             primero.factor.toFixed(2).replace(".", ",") + " por receptores sensibles", "cálculo"],
           ["Geometría", primero.nombre + ", " + num(primero.largo) + " metros, OpenStreetMap", "dato real"]
