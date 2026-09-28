@@ -57,9 +57,11 @@
     var vencidos = c.tramos.filter(function (t) { return t.dias > 365; });
     var criticosVencidos = criticos.filter(function (t) { return t.dias > 365; });
 
-    var km = 0, hogares = 0;
+    var km = 0;
     c.tramos.forEach(function (t) { km += t.largo; });
-    criticos.forEach(function (t) { hogares += t.hogares; });
+    /* Los hogares aguas abajo de dos tramos se superponen, asi que no se suman. Se muestra
+       el corte mas grave, que es un solo calculo sobre el grafo. */
+    var peor = c.tramos.reduce(function (a, t) { return t.hogares > a.hogares ? t : a; });
 
     var riesgoTotal = 0, riesgoCritico = 0;
     c.tramos.forEach(function (t) { riesgoTotal += t.crit; });
@@ -82,10 +84,10 @@
              " % de la red."
       },
       {
-        rotulo: "Hogares expuestos",
-        valor: num(hogares),
-        unidad: "",
-        pie: "cuelgan de un tramo crítico. Es la cifra que hoy nadie calcula."
+        rotulo: "Corte más grave",
+        valor: num(peor.hogares),
+        unidad: "hogares",
+        pie: "quedan sin gas si sale de servicio " + peor.nombre + ". Es la cifra que hoy nadie calcula."
       },
       {
         rotulo: "Deuda de inspección",
@@ -478,7 +480,7 @@
           (criticos.length / c.tramos.length * 100).toFixed(1).replace(".", ",") +
           " % de la red bajo seguimiento y concentran el <b>" +
           (riesgoCritico / riesgoTotal * 100).toFixed(0) + " %</b> del riesgo total. " +
-          "De esos, <b>" + num(conReceptor.length) + "</b> tienen al menos un receptor sensible a menos de 160 metros.",
+          "De esos, <b>" + num(conReceptor.length) + "</b> tienen al menos un receptor sensible aguas abajo.",
         citas: [
           ["Umbral", "percentil 95 de criticidad sobre los " + num(c.tramos.length) + " tramos de " + c.nombre, "definición"],
           ["Receptores", num(c.receptores.length) + " escuelas, hospitales, centros de salud y jardines etiquetados en OpenStreetMap", "dato real"]
