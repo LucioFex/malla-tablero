@@ -727,14 +727,20 @@
     }
 
     boton.addEventListener("click", async function () {
+      var rotulo = boton.textContent;
+      // aviso inmediato: los primeros segundos bajan la libreria y el tokenizador sin progreso
       boton.disabled = true;
+      boton.textContent = "Preparando el modelo";
+      estadoVoz.textContent = "La primera vez baja alrededor de 1 GB y puede tardar unos minutos. " +
+        "Después queda guardado en este navegador y carga en segundos.";
       try {
-        var m = await VOZ.cargar(function (p, t) {
-          estadoVoz.textContent = "Cargando el modelo, " + Math.round(p * 100) + " %. " + t;
+        var m = await VOZ.cargar(function (p) {
+          if (p > 0) boton.textContent = "Cargando el modelo, " + Math.round(p * 100) + " %";
         });
         boton.hidden = true;
         estadoVoz.textContent = "Modelo " + m + " activo en este navegador, sin servidor.";
       } catch (e) {
+        boton.textContent = rotulo;
         boton.disabled = false;
         estadoVoz.textContent = "No se pudo cargar el modelo: " + e.message +
           ". La pregunta libre sigue respondiendo con la consulta armada.";
