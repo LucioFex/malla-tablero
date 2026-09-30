@@ -108,4 +108,5 @@ python -m http.server 8777
 
 ## Licencia
 
-Código bajo licencia MIT. Los datos conservan la licencia de su fuente.
+Código bajo licencia MIT. Los datos conservan la licencia de su fuente. Las tipografías
+Chivo y Chivo Mono, de Omnibus-Type, están en `fuentes/` bajo la SIL Open Font License 1.1.

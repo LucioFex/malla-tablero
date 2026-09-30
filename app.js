@@ -42,6 +42,12 @@
     return paso * mag;
   }
 
+  /* El ancho del dibujo sigue al del contenedor, asi los rotulos se leen a su tamano
+     real tambien en el telefono en lugar de achicarse con todo el grafico. */
+  function ancho(cont, minimo) {
+    return Math.max(minimo || 300, Math.round(cont.getBoundingClientRect().width) - 8);
+  }
+
   function texto(tag, attrs, contenido) {
     var e = el(tag, attrs);
     e.textContent = contenido;
@@ -67,13 +73,15 @@
     c.tramos.forEach(function (t) { riesgoTotal += t.crit; });
     criticos.forEach(function (t) { riesgoCritico += t.crit; });
 
+    /* Cada indicador dice de donde sale, con el mismo vocabulario que las citas de la voz. */
     var datos = [
       {
         rotulo: "Red bajo seguimiento",
         valor: num(km / 1000),
         unidad: "km",
         pie: num(c.tramos.length) + " tramos en " + c.nombre + ", con " +
-             num(c.receptores.length) + " receptores sensibles relevados."
+             num(c.receptores.length) + " receptores sensibles relevados.",
+        origen: "supuesto", nota: "calles reales, red trazada sobre ellas"
       },
       {
         rotulo: "Concentración del riesgo",
@@ -81,30 +89,37 @@
         unidad: "%",
         pie: "del riesgo total vive en los " + num(criticos.length) +
              " tramos críticos, que son el " + (criticos.length / c.tramos.length * 100).toFixed(0) +
-             " % de la red."
+             " % de la red.",
+        origen: "cálculo", nota: "con atributos del caño de muestra"
       },
       {
         rotulo: "Corte más grave",
         valor: num(peor.hogares),
         unidad: "hogares",
-        pie: "quedan sin gas si sale de servicio " + peor.nombre + ". Es la cifra que hoy nadie calcula."
+        pie: "quedan sin gas si sale de servicio " + peor.nombre + ". Es la cifra que hoy nadie calcula.",
+        origen: "cálculo", nota: "sobre el grafo, red radial supuesta"
       },
       {
         rotulo: "Deuda de inspección",
         valor: num(criticosVencidos.length),
-        unidad: "",
-        pie: "tramos críticos llevan más de un año sin inspección, sobre " +
-             num(vencidos.length) + " vencidos en total."
+        unidad: "tramos",
+        pie: "críticos llevan más de un año sin inspección, sobre " +
+             num(vencidos.length) + " vencidos en total.",
+        origen: "muestra", nota: "los días sin inspección no son dato público"
       }
     ];
 
-    document.getElementById("indicadores").innerHTML = datos.map(function (d) {
-      return '<div class="indicador">' +
-        '<p class="indicador-rotulo">' + d.rotulo + "</p>" +
-        '<p class="indicador-valor">' + d.valor + (d.unidad ? "<small>" + d.unidad + "</small>" : "") + "</p>" +
-        '<p class="indicador-pie">' + d.pie + "</p>" +
-        "</div>";
-    }).join("");
+    document.getElementById("indicadores").innerHTML =
+      '<table class="estado-tabla"><tbody>' + datos.map(function (d) {
+        return "<tr>" +
+          '<th scope="row">' + d.rotulo + "</th>" +
+          '<td class="estado-valor">' + d.valor + (d.unidad ? "<small>" + d.unidad + "</small>" : "") + "</td>" +
+          '<td class="estado-pie">' + d.pie + "</td>" +
+          '<td class="estado-origen"><em>' + d.origen + "</em><span>" + d.nota + "</span></td>" +
+          "</tr>";
+      }).join("") + "</tbody></table>";
+
+    document.getElementById("r-tramos").textContent = num(c.tramos.length) + " en " + c.nombre;
   }
 
   /* ---------- serie temporal ---------- */
@@ -116,8 +131,9 @@
     var cont = document.getElementById("serie");
     cont.innerHTML = "";
 
-    var W = 1000, H = 230, ml = 52, mr = 16, mt = 16, mb = 30;
+    var W = ancho(cont), H = W < 560 ? 210 : 250, ml = 46, mr = 12, mt = 34, mb = 28;
     var ax = W - ml - mr, ay = H - mt - mb;
+    var angosto = W < 560;
 
     var max = 0;
     datos.forEach(function (d) { if (d.cantidad > max) max = d.cantidad; });
@@ -150,7 +166,7 @@
     // marcas de anio sobre el eje horizontal
     var anioVisto = {};
     datos.forEach(function (d, i) {
-      if (d.mes === 1 && !anioVisto[d.anio]) {
+      if (d.mes === 1 && !anioVisto[d.anio] && (!angosto || d.anio % 2 === 0)) {
         anioVisto[d.anio] = true;
         svg.appendChild(el("line", { class: "eje-linea", x1: px(i), x2: px(i), y1: mt + ay, y2: mt + ay + 5 }));
         svg.appendChild(texto("text", { class: "eje-texto", x: px(i), y: H - 10, "text-anchor": "middle" }, d.anio));
@@ -167,7 +183,7 @@
     [[iMax, "máximo"], [iFin, "último"]].forEach(function (par) {
       var i = par[0], d = datos[i];
       svg.appendChild(el("circle", { class: "marca-punto", cx: px(i), cy: py(d.cantidad), r: 4.5 }));
-      var ancla = i > datos.length * .82 ? "end" : "middle";
+      var ancla = i > datos.length * .82 ? "end" : i < datos.length * .12 ? "start" : "middle";
       svg.appendChild(texto("text", { class: "marca-rotulo", x: px(i), y: py(d.cantidad) - 16, "text-anchor": ancla },
         num(d.cantidad)));
       svg.appendChild(texto("text", { class: "marca-rotulo-suave", x: px(i), y: py(d.cantidad) - 5, "text-anchor": ancla },
@@ -233,7 +249,7 @@
       " reclamos</b> para " + MESES_LARGOS[D.carga.mes - 1] + " de " + D.carga.anio + ", un factor de <b>" +
       D.carga.factor.toFixed(2).replace(".", ",") + "</b> sobre el promedio de los últimos doce meses. " +
       "El factor multiplica la probabilidad de todos los tramos por igual: cambia su valor, no el orden de la cola." +
-      '<br><span style="color:var(--tinta-3)">El pico de ' + MESES_LARGOS[pico.mes - 1] +
+      '<span class="atipico">El pico de ' + MESES_LARGOS[pico.mes - 1] +
       " de " + pico.anio + ", con " + num(pico.cantidad) + " reclamos contra un promedio mensual de " +
       num(D.reclamos_total_grupo_ii / D.reclamos_serie.length) +
       ", es un valor atípico de la fuente. El modelo no lo borra: como entrada lo reemplaza por la mediana " +
@@ -247,7 +263,7 @@
     cont.innerHTML = "";
 
     var idx = D.estacionalidad;
-    var W = 480, H = 210, ml = 34, mr = 8, mt = 14, mb = 26;
+    var W = ancho(cont), H = Math.min(230, Math.max(180, Math.round(W * .42))), ml = 40, mr = 6, mt = 14, mb = 26;
     var ax = W - ml - mr, ay = H - mt - mb;
 
     var vals = Object.keys(idx).map(function (k) { return idx[k]; });
@@ -259,8 +275,8 @@
 
     function py(v) { return mt + ay - (v - piso) / (tope - piso) * ay; }
 
-    var ancho = ax / 12;
-    var barra = ancho - 6;
+    var col = ax / 12;
+    var barra = col - (col > 30 ? 6 : 3);
 
     var svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img",
       "aria-label": "Índice de reclamos por mes sobre la serie completa" });
@@ -276,7 +292,7 @@
 
     for (var m = 1; m <= 12; m++) {
       var v = idx[m];
-      var x = ml + (m - 1) * ancho + 3;
+      var x = ml + (m - 1) * col + (col - barra) / 2;
       var arriba = v >= 1;
       var y = arriba ? py(v) : py(1);
       var alto = Math.abs(py(v) - py(1));
@@ -284,7 +300,7 @@
       svg.appendChild(el("rect", {
         x: x.toFixed(1), y: y.toFixed(1), width: barra.toFixed(1),
         height: Math.max(2, alto).toFixed(1),
-        rx: 3, fill: arriba ? BORDO : FRIO, opacity: .92
+        fill: arriba ? BORDO : FRIO
       }));
 
       svg.appendChild(texto("text", {
@@ -302,10 +318,10 @@
 
     cont.insertAdjacentHTML("afterend", "");
     document.getElementById("estacion-lectura").innerHTML =
-      '<span class="referencia" style="margin-bottom:10px">' +
-        '<span><i style="background:' + BORDO + '"></i>por encima del promedio anual</span>' +
-        '<span><i style="background:' + FRIO + '"></i>por debajo</span>' +
-      "</span><br>" +
+      '<span class="referencia">' +
+        '<span><i class="color" style="background:' + BORDO + '"></i>por encima del promedio anual</span>' +
+        '<span><i class="color" style="background:' + FRIO + '"></i>por debajo</span>' +
+      "</span>" +
       "El pico está en <b>" + MESES_LARGOS[pico - 1] + "</b>, con un índice de " +
       idx[pico].toFixed(2).replace(".", ",") + ", y el valle en <b>" + MESES_LARGOS[valle - 1] +
       "</b>, con " + idx[valle].toFixed(2).replace(".", ",") +
@@ -373,7 +389,8 @@
     var cont = document.getElementById("curva");
     cont.innerHTML = "";
 
-    var W = 1000, H = 250, ml = 52, mr = 16, mt = 16, mb = 34;
+    var W = ancho(cont), angosto = W < 560;
+    var H = angosto ? 250 : 310, ml = 44, mr = 14, mt = 18, mb = 30;
     var ax = W - ml - mr, ay = H - mt - mb;
 
     function px(j) { return ml + j / TOPE * ax; }
@@ -384,14 +401,15 @@
 
     for (var v = 0; v <= 100; v += 25) {
       svg.appendChild(el("line", { class: "grilla", x1: ml, x2: W - mr, y1: py(v), y2: py(v) }));
-      svg.appendChild(texto("text", { class: "eje-texto", x: ml - 10, y: py(v) + 3.5, "text-anchor": "end" },
+      svg.appendChild(texto("text", { class: "eje-texto", x: ml - 8, y: py(v) + 4, "text-anchor": "end" },
         v + " %"));
     }
 
     for (var j = 0; j <= TOPE; j += 10) {
       svg.appendChild(el("line", { class: "eje-linea", x1: px(j), x2: px(j), y1: mt + ay, y2: mt + ay + 5 }));
-      svg.appendChild(texto("text", { class: "eje-texto", x: px(j), y: H - 14, "text-anchor": "middle" },
-        j === 0 ? "0" : j + " jornadas"));
+      svg.appendChild(texto("text", { class: "eje-texto", x: px(j), y: H - 8,
+        "text-anchor": j === TOPE ? "end" : j === 0 ? "start" : "middle" },
+        j === 0 || angosto ? String(j) : j + " jornadas"));
     }
 
     svg.appendChild(el("line", { class: "eje-linea", x1: ml, x2: W - mr, y1: mt + ay, y2: mt + ay }));
@@ -414,33 +432,75 @@
     var jn = estado.jornadas;
     var pm = enJornadas(malla, jn);
     var pa = enJornadas(actual, jn);
+    var veces = pa > 0 ? pm / pa : 0;
+    var x = px(jn), ym = py(pm), ya = py(pa);
 
-    svg.appendChild(el("line", { class: "curva-guia", x1: px(jn), x2: px(jn), y1: mt, y2: mt + ay }));
-    svg.appendChild(el("circle", { class: "marca-punto", cx: px(jn), cy: py(pm), r: 4.5 }));
-    svg.appendChild(el("circle", { cx: px(jn), cy: py(pa), r: 4, fill: FRIO, stroke: "#fbfaf8", "stroke-width": 2 }));
+    svg.appendChild(el("line", { class: "curva-guia", x1: x, x2: x, y1: mt, y2: mt + ay }));
 
-    var ancla = jn > TOPE * .8 ? "end" : "start";
-    var dx = jn > TOPE * .8 ? -10 : 10;
-    svg.appendChild(texto("text", { class: "marca-rotulo", x: px(jn) + dx, y: py(pm) - 15, "text-anchor": ancla },
-      pm.toFixed(0) + " % con Malla"));
-    svg.appendChild(texto("text", { class: "marca-rotulo-suave", x: px(jn) + dx, y: py(pa) + 17, "text-anchor": ancla },
-      pa.toFixed(1).replace(".", ",") + " % por calle"));
+    /* La cota va entre los dos puntos, del lado donde hay lugar. Si los puntos quedan muy
+       cerca no se dibuja y el cociente queda solo en la lectura de abajo. */
+    var derecha = jn <= TOPE * .6;
+    var cx = x + (derecha ? 1 : -1) * (angosto ? 22 : 34);
+    if (veces > 0 && ya - ym > 44) {
+      svg.appendChild(el("line", { class: "cota-extension", x1: x + (derecha ? 6 : -6), x2: cx + (derecha ? 6 : -6), y1: ym, y2: ym }));
+      svg.appendChild(el("line", { class: "cota-extension", x1: x + (derecha ? 6 : -6), x2: cx + (derecha ? 6 : -6), y1: ya, y2: ya }));
+      svg.appendChild(el("line", { class: "cota", x1: cx, x2: cx, y1: ym + 1, y2: ya - 1 }));
+      [[ym, 1], [ya, -1]].forEach(function (f) {
+        var y0 = f[0], s = f[1];
+        svg.appendChild(el("path", { class: "cota-flecha", fill: "#1b1a17",
+          d: "M" + cx + " " + y0 + " l-3.5 " + (9 * s) + " l7 0 z" }));
+      });
+      var ty = (ym + ya) / 2;
+      var tx = cx + (derecha ? 10 : -10);
+      var ancla = derecha ? "start" : "end";
+      svg.appendChild(texto("text", { class: "cota-texto", x: tx, y: ty + 2, "text-anchor": ancla },
+        coma(veces, 1) + " veces"));
+      svg.appendChild(texto("text", { class: "cota-sub", x: tx, y: ty + 18, "text-anchor": ancla },
+        "más riesgo cubierto"));
+    }
+
+    svg.appendChild(el("circle", { class: "marca-punto", cx: x, cy: ym, r: 5 }));
+    svg.appendChild(el("circle", { class: "punto-calle", cx: x, cy: ya, r: 4.5 }));
+
+    /* Los rotulos de los puntos van a la izquierda si entran. Si no entran, el de Malla va
+       arriba a la derecha y el de la calle al lado de la cota. Con la cota a la izquierda,
+       el de la calle va debajo de su punto. */
+    var rm = coma(pm, 1) + " % por criticidad", rc = coma(pa, 1) + " % por calle";
+    var entra = x - ml > rm.length * 7.2 + 14;
+    if (derecha) {
+      svg.appendChild(texto("text", { class: "marca-rotulo", x: entra ? x - 10 : x + 8, y: ym - 12,
+        "text-anchor": entra ? "end" : "start" }, rm));
+      if (entra) {
+        svg.appendChild(texto("text", { class: "rotulo-calle", x: x - 10, y: ya - 10, "text-anchor": "end" }, rc));
+      } else if (ya - ym > 110) {
+        svg.appendChild(texto("text", { class: "rotulo-calle", x: cx + 10, y: ya - 8, "text-anchor": "start" }, rc));
+      }
+    } else {
+      svg.appendChild(texto("text", { class: "marca-rotulo", x: x - 10, y: ym - 12, "text-anchor": "end" }, rm));
+      svg.appendChild(texto("text", { class: "rotulo-calle", x: x - 10, y: ya + 20, "text-anchor": "end" }, rc));
+    }
 
     cont.appendChild(svg);
 
-    var veces = pa > 0 ? pm / pa : 0;
+    document.getElementById("lectura").innerHTML =
+      '<div class="lectura-dato principal"><span class="lectura-cifra">' + coma(pm, 1) + "<small>%</small></span>" +
+        '<span class="lectura-texto">del riesgo de ' + c.nombre + " cubierto por criticidad, con " + jn +
+        (jn === 1 ? " jornada" : " jornadas") + " por semana</span></div>" +
+      '<div class="lectura-dato calle"><span class="lectura-cifra">' + coma(pa, 1) + "<small>%</small></span>" +
+        '<span class="lectura-texto">con la lista por calle, el criterio de hoy, con las mismas horas</span></div>' +
+      "";
 
     document.getElementById("curva-lectura").innerHTML =
-      '<span class="referencia" style="margin-bottom:10px">' +
-        '<span><i style="background:' + BORDO + '"></i>recorrida por criticidad</span>' +
-        '<span><i style="background:' + FRIO + '"></i>lista por calle, el criterio de hoy</span>' +
-      "</span><br>" +
+      '<span class="referencia">' +
+        '<span><i style="color:' + BORDO + '"></i>recorrida por criticidad</span>' +
+        '<span><i class="cortada" style="color:' + FRIO + '"></i>lista por calle, el criterio de hoy</span>' +
+      "</span>" +
       "Con <b>" + jn + (jn === 1 ? " jornada" : " jornadas") + " de ocho horas por semana</b> la recorrida por " +
-      "criticidad cubre el <b>" + pm.toFixed(0) + " %</b> del riesgo de la red de " + c.nombre +
-      ", contra el <b>" + pa.toFixed(1).replace(".", ",") + " %</b> que cubre la lista por calle con el " +
-      "mismo esfuerzo. Son <b>" + veces.toFixed(1).replace(".", ",") +
+      "criticidad cubre el <b>" + coma(pm, 1) + " %</b> del riesgo de la red de " + c.nombre +
+      ", contra el <b>" + coma(pa, 1) + " %</b> que cubre la lista por calle con el " +
+      "mismo esfuerzo. Son <b>" + coma(veces, 1) +
       " veces</b> más riesgo cubierto sin agregar una sola hora de cuadrilla. La ventaja " +
-      "es mayor cuanto más escaso es el recurso, que es la situación real: con la red " +
+      "es mayor cuanto más escaso es el recurso, que es lo que pasa en la práctica: con la red " +
       "entera recorrida los dos criterios llegan al mismo lugar.";
   }
 
@@ -542,7 +602,8 @@
             "muestra y modelo"],
           ["Consecuencia", num(primero.hogares) + " hogares aguas abajo por un factor de " +
             coma(primero.factor, 2) + " por receptores sensibles", "cálculo"],
-          ["Geometría", primero.nombre + ", " + num(primero.largo) + " metros, OpenStreetMap", "dato real"]
+          ["Geometría", primero.nombre + ", " + num(primero.largo) + " metros, OpenStreetMap", "dato real"],
+          ["Días sin inspección", "de muestra, la fecha de la última inspección no es dato público", "muestra"]
         ]
       },
       cobertura: {
@@ -578,7 +639,7 @@
           ["Estacionalidad", "índice mensual sobre " + num(D.reclamos_total_grupo_ii) +
             " reclamos de inconvenientes en el suministro, 2018 a 2026", "dato real"],
           ["Vencidos", num(vencidos.length) + " de " + num(criticos.length) +
-            " tramos críticos superan los 365 días sin inspección", "cálculo"]
+            " tramos críticos superan los 365 días sin inspección, con días de muestra", "muestra"]
         ]
       },
       limites: {
@@ -709,9 +770,40 @@
     }
   }
 
+  /* ---------- la carga del modelo ----------
+
+     Lo que dice la pantalla sale de lo que informa WebLLM: el porcentaje de su avance y
+     los megas del texto de progreso. Si el texto no trae megas, se muestra solo el
+     porcentaje. WebLLM carga en etapas y cada una tiene su propio avance, por eso cada
+     etapa tiene su rotulo. */
+
+  function leerAvance(p, txt) {
+    txt = txt || "";
+    var mb = /(\d+(?:[.,]\d+)?)\s*MB\s+(fetched|loaded)/i.exec(txt);
+    var etapa = "descarga";
+    if (/from cache|MB\s+loaded/i.test(txt)) etapa = "cache";
+    else if (/shader|gpu/i.test(txt) && !mb) etapa = "placa";
+    return {
+      pct: p > 0 ? Math.min(100, Math.round(p * 100)) : null,
+      mb: mb ? Math.round(parseFloat(mb[1].replace(",", "."))) : null,
+      etapa: etapa
+    };
+  }
+
+  var ETAPAS = {
+    descarga: ["Descargando el modelo", "MB bajados"],
+    cache: ["Cargando el modelo guardado en este navegador", "MB leídos"],
+    placa: ["Preparando la placa de video", ""]
+  };
+
+  function nombreModelo(m) {
+    return "Qwen 3 de 1,7 mil millones de parámetros, variante " + (/q4f16/.test(m) ? "q4f16" : "q4f32");
+  }
+
   function voz() {
-    var estadoVoz = document.getElementById("voz-estado");
-    var boton = document.getElementById("voz-activar");
+    var caja = document.getElementById("voz-modelo");
+    var linea = document.getElementById("voz-linea");
+    var enCurso = false;
 
     document.getElementById("voz-form").addEventListener("submit", function (ev) {
       ev.preventDefault();
@@ -719,33 +811,111 @@
       if (p) preguntar(p);
     });
 
+    function decir(clase, html) {
+      linea.className = "voz-linea " + clase;
+      linea.innerHTML = '<span class="senal" aria-hidden="true"></span><span>' + html + "</span>";
+    }
+
+    function avisoAntes() {
+      caja.className = "r-voz";
+      caja.innerHTML =
+        "<h2>La voz puede sumar un modelo de lenguaje</h2>" +
+        "<ul>" +
+          "<li><b>Pesa alrededor de 1 GB.</b> La primera vez tarda unos minutos en bajar.</li>" +
+          "<li><b>Queda guardado en este navegador.</b> La próxima vez carga en segundos.</li>" +
+          "<li><b>Es opcional.</b> Sin el modelo, la voz responde igual con las consultas armadas.</li>" +
+        "</ul>" +
+        '<button class="boton-lamina" type="button" id="voz-activar">Descargar y activar el modelo</button>';
+      document.getElementById("voz-activar").addEventListener("click", activar);
+      decir("", "Responden las consultas armadas. " +
+        '<button class="enlace" type="button" id="voz-activar-2">Activar el modelo de lenguaje</button>, ' +
+        "alrededor de 1 GB la primera vez.");
+      document.getElementById("voz-activar-2").addEventListener("click", activar);
+    }
+
+    function pintarAvance(a) {
+      var barra = document.getElementById("voz-barra");
+      if (!barra) return;
+      var et = ETAPAS[a.etapa];
+      document.getElementById("voz-etapa").textContent = et[0];
+      barra.classList.toggle("indefinida", a.pct === null);
+      barra.firstChild.style.transform = a.pct === null ? "" : "scaleX(" + a.pct / 100 + ")";
+      barra.setAttribute("aria-valuenow", a.pct === null ? 0 : a.pct);
+      document.getElementById("voz-pct").textContent = a.pct === null ? "" : a.pct + " %";
+      document.getElementById("voz-mb").textContent = a.mb === null ? "" : num(a.mb) + " " + et[1];
+      decir("cargando", et[0] + (a.pct === null ? "" : ", " + a.pct + " %") +
+        ". Mientras tanto responden las consultas armadas.");
+    }
+
+    async function activar() {
+      if (enCurso) return;
+      enCurso = true;
+      var t0 = performance.now();
+      caja.className = "r-voz cargando";
+      document.body.classList.add("con-avance");
+      caja.innerHTML =
+        '<h2 id="voz-etapa">Preparando la descarga</h2>' +
+        '<div class="escala indefinida" id="voz-barra" role="progressbar" aria-labelledby="voz-etapa" ' +
+          'aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>' +
+        '<div class="escala-n" aria-hidden="true"><span>0</span><span>50</span><span>100 %</span></div>' +
+        '<div class="avance"><span class="avance-pct" id="voz-pct"></span><span class="avance-mb" id="voz-mb"></span></div>' +
+        '<p class="sigue">Podés seguir usando el tablero mientras carga.</p>';
+      decir("cargando", "Preparando la descarga del modelo. Mientras tanto responden las consultas armadas.");
+      try {
+        var m = await VOZ.cargar(function (p, txt) {
+          pintarAvance(leerAvance(p, txt));
+          if (window.console) console.log("[voz] avance", Math.round(p * 100), txt);
+        });
+        var s = coma((performance.now() - t0) / 1000, 0);
+        caja.className = "r-voz";
+        document.body.classList.remove("con-avance");
+        caja.innerHTML =
+          '<div class="en-servicio"><span class="senal" aria-hidden="true"></span><div>' +
+          "<h2>Modelo activo en este navegador</h2>" +
+          "<p>" + nombreModelo(m) + ". Corre en tu placa de video, sin servidor. Cargó en " + s + " s.</p>" +
+          "<p>Elige la consulta y redacta con sus números. Si trae un número que el sistema no calculó, " +
+          "se muestra la respuesta armada.</p>" +
+          "</div></div>";
+        decir("activo", "<b>Modelo activo en este navegador.</b> Elige la consulta y redacta con los números del cálculo.");
+      } catch (e) {
+        enCurso = false;
+        caja.className = "r-voz";
+        document.body.classList.remove("con-avance");
+        caja.innerHTML =
+          "<h2>El modelo no terminó de cargar</h2>" +
+          "<p>La voz sigue respondiendo con las consultas armadas, con los mismos números. " +
+          "Podés intentar de nuevo o seguir sin el modelo.</p>" +
+          '<p class="detalle">Detalle: ' + escapar(String((e && e.message) || e)) + "</p>" +
+          '<button class="boton-lamina reintentar" type="button" id="voz-reintentar">Intentar de nuevo</button>';
+        document.getElementById("voz-reintentar").addEventListener("click", activar);
+        decir("", "Responden las consultas armadas, con los mismos números.");
+      }
+    }
+
     if (!VOZ.hayWebGPU()) {
-      boton.hidden = true;
-      estadoVoz.textContent = "Este navegador no tiene WebGPU, así que la pregunta libre se responde " +
-        "con la consulta armada que corresponda. Con Chrome o Edge actualizados se puede activar el modelo.";
+      caja.className = "r-voz";
+      caja.innerHTML =
+        "<h2>La voz responde con las consultas armadas</h2>" +
+        "<p>El modelo de lenguaje necesita WebGPU y este navegador no lo tiene. La voz funciona igual: " +
+        "elige la consulta por palabras clave y responde con los números del cálculo.</p>" +
+        "<p>Con Chrome o Edge actualizados se puede sumar el modelo.</p>";
+      decir("", "Responden las consultas armadas, elegidas por palabras clave.");
       return;
     }
 
-    boton.addEventListener("click", async function () {
-      var rotulo = boton.textContent;
-      // aviso inmediato: los primeros segundos bajan la libreria y el tokenizador sin progreso
-      boton.disabled = true;
-      boton.textContent = "Preparando el modelo";
-      estadoVoz.textContent = "La primera vez baja alrededor de 1 GB y puede tardar unos minutos. " +
-        "Después queda guardado en este navegador y carga en segundos.";
-      try {
-        var m = await VOZ.cargar(function (p) {
-          if (p > 0) boton.textContent = "Cargando el modelo, " + Math.round(p * 100) + " %";
-        });
-        boton.hidden = true;
-        estadoVoz.textContent = "Modelo " + m + " activo en este navegador, sin servidor.";
-      } catch (e) {
-        boton.textContent = rotulo;
-        boton.disabled = false;
-        estadoVoz.textContent = "No se pudo cargar el modelo: " + e.message +
-          ". La pregunta libre sigue respondiendo con la consulta armada.";
-      }
-    });
+    avisoAntes();
+  }
+
+  /* ---------- redibujo al cambiar el ancho ---------- */
+
+  var ultimoAncho = 0;
+  function alCambiarAncho() {
+    var w = document.getElementById("curva").getBoundingClientRect().width;
+    if (Math.abs(w - ultimoAncho) < 2) return;
+    ultimoAncho = w;
+    serie();
+    estacionalidad();
+    curva();
   }
 
   /* ---------- arranque ---------- */
@@ -781,11 +951,21 @@
     });
 
     document.getElementById("btn-procedencia").addEventListener("click", function () {
-      document.querySelector(".pie").scrollIntoView({ behavior: "smooth", block: "end" });
+      document.getElementById("procedencia").scrollIntoView({ behavior: "smooth", block: "start" });
     });
 
+    var ultimo = D.reclamos_serie[D.reclamos_serie.length - 1];
+    document.getElementById("r-serie").textContent = MESES_LARGOS[ultimo.mes - 1] + " de " + ultimo.anio;
+
     refrescar();
+    ultimoAncho = document.getElementById("curva").getBoundingClientRect().width;
     voz();
+
+    var espera = null;
+    window.addEventListener("resize", function () {
+      clearTimeout(espera);
+      espera = setTimeout(alCambiarAncho, 150);
+    });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar);

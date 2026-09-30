@@ -6,136 +6,147 @@
 <title>Malla, gemelo digital de la red. Gestión de la inspección</title>
 <meta name="description" content="Variante C de Malla, gemelo digital de una red de distribución de gas natural: cobertura de inspección, la serie real de reclamos de ENARGAS y la voz del gemelo, una consulta anclada al cálculo determinístico.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%237b1e2b'/%3E%3Cg fill='%23fbfaf8'%3E%3Crect x='7' y='16' width='4' height='10' rx='1'/%3E%3Crect x='14' y='10' width='4' height='16' rx='1'/%3E%3Crect x='21' y='6' width='4' height='20' rx='1'/%3E%3C/g%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@400;600&display=swap" rel="stylesheet">
+<link rel="preload" href="fuentes/chivo.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="estilo.css">
 <link rel="stylesheet" href="tablero.css">
 </head>
 <body class="cuerpo-tablero">
 
-<header class="barra">
-  <div class="marca">
-    <b>Malla</b>
-    <span>Gestión de la inspección</span>
-  </div>
+<div class="hoja">
+  <div class="zonas" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></div>
+  <div class="zonas zonas-v" aria-hidden="true"><span>A</span><span>B</span><span>C</span><span>D</span></div>
 
-  <div class="barra-sep"></div>
+  <div class="marco">
 
-  <label class="campo">
-    Ciudad
-    <select id="ciudad" aria-label="Ciudad"></select>
-  </label>
+    <main class="dibujo">
 
-  <label class="campo">
-    Período
-    <select id="periodo" aria-label="Período">
-      <option value="12">Últimos 12 meses</option>
-      <option value="24">Últimos 24 meses</option>
-      <option value="0" selected>Serie completa</option>
-    </select>
-  </label>
+      <section class="figura" aria-labelledby="t-curva">
+        <h2 id="t-curva" class="fig-titulo">Cuánta cuadrilla hace falta</h2>
+        <p class="fig-rotulo">Figura 1. Riesgo de la red cubierto según las jornadas de ocho horas por semana. Cálculo del motor sobre calles reales, con los atributos del caño de muestra y la red radial supuesta.</p>
 
-  <div class="barra-fin">
-    <button class="boton" id="btn-procedencia" type="button">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="8" cy="8" r="6.25"/><path d="M8 7.2v4"/><path d="M8 4.9h.01"/>
-      </svg>
-      Procedencia del dato
-    </button>
-  </div>
-</header>
+        <div class="lectura" id="lectura"></div>
 
-<main class="tablero">
+        <div class="control-jornadas">
+          <label class="etiqueta-control" for="jornadas">Jornadas por semana</label>
+          <input type="range" id="jornadas" min="1" max="40" step="1" value="10">
+          <span class="rango-valor" id="jornadas-valor">10</span>
+        </div>
 
-  <section class="panel panel-ancho" aria-labelledby="t-estado">
-    <h2 id="t-estado" class="panel-titulo">Estado de la red</h2>
-    <div class="indicadores" id="indicadores"></div>
-  </section>
+        <div id="curva" class="grafico lienzo"></div>
+        <p class="panel-lectura" id="curva-lectura"></p>
+        <p class="fig-nota">Las dos curvas salen del mismo motor que arma la hoja de ruta del día, con una cuadrilla por jornada asignada, y las dos pagan el viaje real entre tramo y tramo sobre la red completa.</p>
+      </section>
 
-  <section class="panel panel-ancho" aria-labelledby="t-serie">
-    <div class="panel-cabeza">
-      <h2 id="t-serie" class="panel-titulo">Reclamos por inconvenientes en el suministro</h2>
-      <p class="panel-nota">Camuzzi Gas Pampeana, Buenos Aires, La Pampa y Río Negro. Fuente ENARGAS, dato real.</p>
-    </div>
-    <div id="serie" class="grafico"></div>
-    <div id="serie-pie" class="grafico-pie"></div>
-  </section>
+      <section class="estado" aria-labelledby="t-estado">
+        <h2 id="t-estado" class="fig-titulo">Estado de la red</h2>
+        <div class="indicadores" id="indicadores"></div>
+      </section>
 
-  <section class="panel" aria-labelledby="t-estacion">
-    <div class="panel-cabeza">
-      <h2 id="t-estacion" class="panel-titulo">Estacionalidad</h2>
-      <p class="panel-nota">Índice mensual sobre la serie completa. Dato real.</p>
-    </div>
-    <div id="estacionalidad" class="grafico"></div>
-    <p class="panel-lectura" id="estacion-lectura"></p>
-  </section>
+      <section class="figura" aria-labelledby="t-serie">
+        <h2 id="t-serie" class="fig-titulo">Reclamos por inconvenientes en el suministro</h2>
+        <p class="fig-rotulo">Figura 2. Camuzzi Gas Pampeana, Buenos Aires, La Pampa y Río Negro. Fuente ENARGAS, dato real.</p>
+        <div id="serie" class="grafico lienzo"></div>
+        <div id="serie-pie" class="grafico-pie"></div>
+      </section>
 
-  <section class="panel" aria-labelledby="t-ranking">
-    <div class="panel-cabeza">
-      <h2 id="t-ranking" class="panel-titulo">Tramos que encabezan la cola</h2>
-      <p class="panel-nota">Ordenados por criticidad, con los días que llevan sin inspección.</p>
-    </div>
-    <div class="tabla-marco">
-      <table class="tabla" id="ranking">
-        <thead>
-          <tr>
-            <th scope="col">Tramo</th>
-            <th scope="col" class="n">Criticidad</th>
-            <th scope="col" class="n">Hogares</th>
-            <th scope="col" class="n">Sin inspección</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
+      <div class="par">
+        <section class="figura" aria-labelledby="t-ranking">
+          <h2 id="t-ranking" class="fig-titulo">Tramos que encabezan la cola</h2>
+          <p class="fig-rotulo">Tabla 1. Ordenados por criticidad, con los días que llevan sin inspección. El material y los días son de muestra.</p>
+          <div class="tabla-marco">
+            <table class="tabla" id="ranking">
+              <thead>
+                <tr>
+                  <th scope="col">Tramo</th>
+                  <th scope="col" class="n">Criticidad</th>
+                  <th scope="col" class="n">Hogares</th>
+                  <th scope="col" class="n">Sin inspección</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
 
-  <section class="panel panel-ancho" aria-labelledby="t-curva">
-    <div class="panel-cabeza">
-      <h2 id="t-curva" class="panel-titulo">Cuánta cuadrilla hace falta</h2>
-      <p class="panel-nota">Riesgo de la red cubierto según cuántas jornadas de ocho horas se asignen por semana, recorriendo por criticidad y comparado contra la lista por calle. Las dos curvas salen del mismo motor que arma la hoja de ruta del día, con una cuadrilla por jornada asignada, y las dos pagan el viaje real entre tramo y tramo sobre la red completa.</p>
-    </div>
-
-    <div class="control-jornadas">
-      <span class="etiqueta-control">Jornadas por semana</span>
-      <input type="range" id="jornadas" min="1" max="40" step="1" value="10" aria-label="Jornadas de cuadrilla por semana">
-      <span class="rango-valor"><span id="jornadas-valor">10</span></span>
-    </div>
-
-    <div id="curva" class="grafico"></div>
-    <p class="panel-lectura" id="curva-lectura"></p>
-  </section>
-
-  <section class="panel panel-ancho panel-consulta" aria-labelledby="t-consulta">
-    <div class="panel-cabeza">
-      <h2 id="t-consulta" class="panel-titulo">Consulta, la voz del gemelo</h2>
-      <p class="panel-nota">Responde citando los números que el cálculo determinístico ya produjo. No estima ni opina.</p>
-    </div>
-
-    <div class="sugerencias" id="sugerencias"></div>
-
-    <form class="voz-form" id="voz-form">
-      <label class="voz-rotulo" for="voz-pregunta">O preguntá con tus palabras</label>
-      <div class="voz-fila">
-        <input class="voz-entrada" id="voz-pregunta" type="text" autocomplete="off"
-               placeholder="Por ejemplo, qué queda sin gas si se corta la Avenida Alem">
-        <button class="sugerencia" type="submit">Preguntar</button>
+        <section class="figura" aria-labelledby="t-estacion">
+          <h2 id="t-estacion" class="fig-titulo">Estacionalidad</h2>
+          <p class="fig-rotulo">Figura 3. Índice mensual sobre la serie completa. Dato real.</p>
+          <div id="estacionalidad" class="grafico"></div>
+          <p class="panel-lectura" id="estacion-lectura"></p>
+        </section>
       </div>
-      <p class="voz-estado"><button class="sugerencia" type="button" id="voz-activar">Activar el modelo de lenguaje, alrededor de 1 GB la primera vez</button>
-        <span id="voz-estado">El modelo corre en este navegador, elige la consulta y redacta con sus números. Si trae un número que el sistema no calculó, se muestra la respuesta armada.</span></p>
-    </form>
 
-    <div class="respuesta" id="respuesta">
-      <p class="respuesta-vacia">Elegí una pregunta para ver cómo se responde con trazabilidad al dato.</p>
-    </div>
-  </section>
+      <section class="consulta" id="consulta" aria-labelledby="t-consulta">
+        <h2 id="t-consulta" class="fig-titulo">Consulta, la voz del gemelo</h2>
+        <p class="fig-rotulo">Responde citando los números que el cálculo determinístico ya produjo. No estima ni opina.</p>
 
-</main>
+        <p class="voz-linea" id="voz-linea"></p>
 
-<footer class="pie">
-  <p><b>Maqueta con datos mixtos.</b> Las calles y los receptores sensibles son reales, de OpenStreetMap, ODbL. La serie de reclamos es real, de ENARGAS, CC BY 4.0. Los hogares aguas abajo se calculan sobre el grafo de las calles con el Censo 2022, como si la red fuera radial y el gas entrara por el punto más cercano al gasoducto troncal de ENARGAS, porque la traza real y su entrada no son dato público. Los atributos del caño son de muestra, y la probabilidad de falla es una base calculada con ellos por un factor de carga que pronostica un modelo entrenado sobre la serie de reclamos.</p>
-</footer>
+        <div class="sugerencias" id="sugerencias"></div>
+
+        <form class="voz-form" id="voz-form">
+          <label class="voz-rotulo" for="voz-pregunta">O preguntá con tus palabras</label>
+          <div class="voz-fila">
+            <input class="voz-entrada" id="voz-pregunta" type="text" autocomplete="off"
+                   placeholder="Por ejemplo, qué queda sin gas si se corta la Avenida Alem">
+            <button class="boton-lamina" type="submit">Preguntar</button>
+          </div>
+        </form>
+
+        <div class="respuesta" id="respuesta" aria-live="polite">
+          <p class="respuesta-vacia">Elegí una pregunta para ver cómo se responde con trazabilidad al dato.</p>
+        </div>
+      </section>
+
+      <footer class="pie" id="procedencia">
+        <h2 class="fig-titulo">Procedencia del dato</h2>
+        <p><b>Maqueta con datos mixtos.</b> Las calles y los receptores sensibles son reales, de OpenStreetMap, ODbL. La serie de reclamos es real, de ENARGAS, CC BY 4.0. Los hogares aguas abajo se calculan sobre el grafo de las calles con el Censo 2022, como si la red fuera radial y el gas entrara por el punto más cercano al gasoducto troncal de ENARGAS, porque la traza real y su entrada no son dato público. Los atributos del caño son de muestra, y la probabilidad de falla es una base calculada con ellos por un factor de carga que pronostica un modelo entrenado sobre la serie de reclamos. Los días sin inspección de cada tramo también son de muestra, porque la fecha de la última inspección no es dato público.</p>
+      </footer>
+
+    </main>
+
+    <aside class="rotulo" aria-label="Rótulo de la lámina">
+      <div class="r-titulo">
+        <h1>Malla</h1>
+        <p>Gemelo digital de la red de gas. Gestión de la inspección</p>
+      </div>
+
+      <div class="r-dos">
+        <label class="r-celda">
+          <span class="k">Ciudad</span>
+          <select id="ciudad"></select>
+        </label>
+        <label class="r-celda">
+          <span class="k">Período</span>
+          <select id="periodo">
+            <option value="12">Últimos 12 meses</option>
+            <option value="24">Últimos 24 meses</option>
+            <option value="0" selected>Serie completa</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="r-dos r-datos">
+        <div class="r-celda"><span class="k">Reclamos hasta</span><span id="r-serie"></span></div>
+        <div class="r-celda"><span class="k">Tramos en la red</span><span id="r-tramos"></span></div>
+      </div>
+
+      <div class="r-voz" id="voz-modelo" aria-live="polite"></div>
+
+      <dl class="r-leyenda">
+        <dt>Real</dt><dd>calles y receptores de OpenStreetMap, reclamos de ENARGAS</dd>
+        <dt>Cálculo</dt><dd>hogares aguas abajo, criticidad y cobertura</dd>
+        <dt>Supuesto</dt><dd>la red va por las calles, es radial y el gas entra cerca del troncal</dd>
+        <dt>Muestra</dt><dd>los atributos del caño y los días sin inspección</dd>
+      </dl>
+
+      <div class="r-celda r-pie">
+        <button class="enlace" id="btn-procedencia" type="button">Procedencia del dato, el detalle completo</button>
+      </div>
+    </aside>
+
+  </div>
+</div>
 
 <script src="datos/malla-datos.js"></script>
 <script src="motor.js"></script>
